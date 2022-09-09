@@ -133,72 +133,94 @@ typedef struct CallInfo {
 
 /*
 ** 'global state', shared by all threads of this state
+	负责全局的状态，比如 GC 相关的，注册表，内存统计 等等信息
 */
-typedef struct global_State {
-  lua_Alloc frealloc;  /* function to reallocate memory */
-  void *ud;         /* auxiliary data to 'frealloc' */
-  l_mem totalbytes;  /* number of bytes currently allocated - GCdebt */
-  l_mem GCdebt;  /* bytes allocated not yet compensated by the collector */
-  lu_mem GCmemtrav;  /* memory traversed by the GC */
-  lu_mem GCestimate;  /* an estimate of the non-garbage memory in use */
-  stringtable strt;  /* hash table for strings */
-  TValue l_registry;
-  unsigned int seed;  /* randomized seed for hashes */
-  lu_byte currentwhite;
-  lu_byte gcstate;  /* state of garbage collector */
-  lu_byte gckind;  /* kind of GC running */
-  lu_byte gcrunning;  /* true if GC is running */
-  GCObject *allgc;  /* list of all collectable objects */
-  GCObject **sweepgc;  /* current position of sweep in list */
-  GCObject *finobj;  /* list of collectable objects with finalizers */
-  GCObject *gray;  /* list of gray objects */
-  GCObject *grayagain;  /* list of objects to be traversed atomically */
-  GCObject *weak;  /* list of tables with weak values */
-  GCObject *ephemeron;  /* list of ephemeron tables (weak keys) */
-  GCObject *allweak;  /* list of all-weak tables */
-  GCObject *tobefnz;  /* list of userdata to be GC */
-  GCObject *fixedgc;  /* list of objects not to be collected */
-  struct lua_State *twups;  /* list of threads with open upvalues */
-  unsigned int gcfinnum;  /* number of finalizers to call in each GC step */
-  int gcpause;  /* size of pause between successive GCs */
-  int gcstepmul;  /* GC 'granularity' */
-  lua_CFunction panic;  /* to be called in unprotected errors */
-  struct lua_State *mainthread;
-  const lua_Number *version;  /* pointer to version number */
-  TString *memerrmsg;  /* memory-error message */
-  TString *tmname[TM_N];  /* array with tag-method names */
-  struct Table *mt[LUA_NUMTAGS];  /* metatables for basic types */
-  TString *strcache[STRCACHE_N][STRCACHE_M];  /* cache for strings in API */
+typedef struct global_State 
+{
+	// 内存分配函数，以及关联的用户数据
+	lua_Alloc frealloc;  /* function to reallocate memory */
+	
+	void *ud;         /* auxiliary data to 'frealloc' */
+	l_mem totalbytes;  /* number of bytes currently allocated - GCdebt */
+	l_mem GCdebt;  /* bytes allocated not yet compensated by the collector */
+	lu_mem GCmemtrav;  /* memory traversed by the GC */
+	lu_mem GCestimate;  /* an estimate of the non-garbage memory in use */
+
+	// 短字符串哈希表
+	stringtable strt;  /* hash table for strings */
+
+	// 全局注册表
+	TValue l_registry;
+	unsigned int seed;  /* randomized seed for hashes */
+	lu_byte currentwhite;
+	lu_byte gcstate;  /* state of garbage collector */
+	lu_byte gckind;  /* kind of GC running */
+	lu_byte gcrunning;  /* true if GC is running */
+	GCObject *allgc;  /* list of all collectable objects */
+	GCObject **sweepgc;  /* current position of sweep in list */
+	GCObject *finobj;  /* list of collectable objects with finalizers */
+	GCObject *gray;  /* list of gray objects */
+	GCObject *grayagain;  /* list of objects to be traversed atomically */
+	GCObject *weak;  /* list of tables with weak values */
+	GCObject *ephemeron;  /* list of ephemeron tables (weak keys) */
+	GCObject *allweak;  /* list of all-weak tables */
+	GCObject *tobefnz;  /* list of userdata to be GC */
+	GCObject *fixedgc;  /* list of objects not to be collected */
+	struct lua_State *twups;  /* list of threads with open upvalues */
+	unsigned int gcfinnum;  /* number of finalizers to call in each GC step */
+	int gcpause;  /* size of pause between successive GCs */
+	int gcstepmul;  /* GC 'granularity' */
+
+	// 终止函数
+	lua_CFunction panic;  /* to be called in unprotected errors */
+
+	// 主线程
+	struct lua_State *mainthread;
+	const lua_Number *version;  /* pointer to version number */
+
+	// 错误消息
+	TString *memerrmsg;  /* memory-error message */
+
+	// 元方法名，初始化在 luaT_init()
+	TString *tmname[TM_N];  /* array with tag-method names */
+
+	// 基本类型的 元方法，表和 userdata 之外的 元表 放这儿
+	struct Table *mt[LUA_NUMTAGS];  /* metatables for basic types */
+
+	// 零结尾的字符串缓存
+	TString *strcache[STRCACHE_N][STRCACHE_M];  /* cache for strings in API */
 } global_State;
 
 
 /*
 ** 'per thread' state
+	lua_State 对应于一个 Lua 线程，当创建一个 Lua 虚拟机 时会自动创建一个 “主线程”，默认Lua代码就在这个 主线程 中执行
 */
-struct lua_State {
-  CommonHeader;
-  unsigned short nci;  /* number of items in 'ci' list */
-  lu_byte status;
-  StkId top;  /* first free slot in the stack */
-  global_State *l_G;
-  CallInfo *ci;  /* call info for current function */
-  const Instruction *oldpc;  /* last pc traced */
-  StkId stack_last;  /* last free slot in the stack */
-  StkId stack;  /* stack base */
-  UpVal *openupval;  /* list of open upvalues in this stack */
-  GCObject *gclist;
-  struct lua_State *twups;  /* list of threads with open upvalues */
-  struct lua_longjmp *errorJmp;  /* current error recover point */
-  CallInfo base_ci;  /* CallInfo for first level (C calling Lua) */
-  volatile lua_Hook hook;
-  ptrdiff_t errfunc;  /* current error handling function (stack index) */
-  int stacksize;
-  int basehookcount;
-  int hookcount;
-  unsigned short nny;  /* number of non-yieldable calls in stack */
-  unsigned short nCcalls;  /* number of nested C calls */
-  l_signalT hookmask;
-  lu_byte allowhook;
+struct lua_State 
+{
+	CommonHeader;
+	unsigned short nci;  /* number of items in 'ci' list */
+	lu_byte status;
+	StkId top;  /* first free slot in the stack */
+	global_State *l_G;
+	CallInfo *ci;  /* call info for current function */
+	const Instruction *oldpc;  /* last pc traced */
+	StkId stack_last;  /* last free slot in the stack */
+	StkId stack;  /* stack base */
+	UpVal *openupval;  /* list of open upvalues in this stack */
+	GCObject *gclist;
+	struct lua_State *twups;  /* list of threads with open upvalues */
+	struct lua_longjmp *errorJmp;  /* current error recover point */
+	CallInfo base_ci;  /* CallInfo for first level (C calling Lua) */
+	volatile lua_Hook hook;
+	ptrdiff_t errfunc;  /* current error handling function (stack index) */
+	int stacksize;
+	int basehookcount;
+	int hookcount;
+	unsigned short nny;  /* number of non-yieldable calls in stack */
+	unsigned short nCcalls;  /* number of nested C calls */
+	l_signalT hookmask;
+	lu_byte allowhook;
 };
 
 

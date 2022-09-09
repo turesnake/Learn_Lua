@@ -1,11 +1,16 @@
 /*
 ** $Id: lauxlib.c,v 1.289.1.1 2017/04/19 17:20:42 roberto Exp $
-** Auxiliary functions for building Lua libraries
+
+** Auxiliary 辅助 functions for building Lua libraries
+
 ** See Copyright Notice in lua.h
 */
 
+
+
 #define lauxlib_c
 #define LUA_LIB
+
 
 #include "lprefix.h"
 
@@ -1005,18 +1010,29 @@ LUALIB_API const char *luaL_gsub (lua_State *L, const char *s, const char *p,
 }
 
 
-static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
+// 默认的分配器：
+// 被传入 lua_newstate() 中, 当作 使用;
+// nsize == 0 : 行为和 free() 一样
+// nsize != 0: 行为和 realloc() 一样，当 ptr==NULL 时，realloc 和 malloc 一样；否则重分配内存，注意返回的地址和 ptr 可能不一样。
+static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) 
+{
   (void)ud; (void)osize;  /* not used */
   if (nsize == 0) {
     free(ptr);
     return NULL;
   }
-  else {  /* cannot fail when shrinking a block */
+  else {  /* cannot fail when shrinking 收缩 a block */
+    /*
+      realloc():
+	  	attempts to resize the memory block pointed to by "ptr" that was previously allocated with a call to malloc() or calloc().
+	  	returns a pointer to the newly allocated memory, or NULL if the request fails.
+    */
     void *newptr = realloc(ptr, nsize);
     if (newptr == NULL && ptr != NULL && nsize <= osize)
-      return ptr;  /* keep the original block */
+      	return ptr;  /* keep the original block */
     else  /* no fail or not shrinking */
-     return newptr;  /* use the new block */
+		// 就算  newptr 为 null, 
+     	return newptr;  /* use the new block */
   }
 }
 
