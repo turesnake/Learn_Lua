@@ -15,6 +15,7 @@
 
 #define getfuncline(f,pc)	(((f)->lineinfo) ? (f)->lineinfo[pc] : -1)
 
+// 重置 L->hookcount
 #define resethookcount(L)	(L->hookcount = L->basehookcount)
 
 

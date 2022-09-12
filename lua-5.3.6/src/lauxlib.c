@@ -1016,24 +1016,24 @@ LUALIB_API const char *luaL_gsub (lua_State *L, const char *s, const char *p,
 // nsize != 0: 行为和 realloc() 一样，当 ptr==NULL 时，realloc 和 malloc 一样；否则重分配内存，注意返回的地址和 ptr 可能不一样。
 static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) 
 {
-  (void)ud; (void)osize;  /* not used */
-  if (nsize == 0) {
-    free(ptr);
-    return NULL;
-  }
-  else {  /* cannot fail when shrinking 收缩 a block */
-    /*
-      realloc():
-	  	attempts to resize the memory block pointed to by "ptr" that was previously allocated with a call to malloc() or calloc().
-	  	returns a pointer to the newly allocated memory, or NULL if the request fails.
-    */
-    void *newptr = realloc(ptr, nsize);
-    if (newptr == NULL && ptr != NULL && nsize <= osize)
-      	return ptr;  /* keep the original block */
-    else  /* no fail or not shrinking */
-		// 就算  newptr 为 null, 
-     	return newptr;  /* use the new block */
-  }
+    (void)ud; (void)osize;  /* not used */
+    if (nsize == 0) {
+        free(ptr);
+        return NULL;
+    }
+    else {  /* cannot fail when shrinking 收缩 a block */
+        /*
+          realloc():
+          attempts to resize the memory block pointed to by "ptr" that was previously allocated with a call to malloc() or calloc().
+          returns a pointer to the newly allocated memory, or NULL if the request fails.
+        */
+        void *newptr = realloc(ptr, nsize);
+        if (newptr == NULL && ptr != NULL && nsize <= osize)
+            return ptr;  /* keep the original block */
+        else  /* no fail or not shrinking */
+        // 就算  newptr 为 null, 
+          return newptr;  /* use the new block */
+    }
 }
 
 
@@ -1044,10 +1044,11 @@ static int panic (lua_State *L) {
 }
 
 
-LUALIB_API lua_State *luaL_newstate (void) {
-  lua_State *L = lua_newstate(l_alloc, NULL);
-  if (L) lua_atpanic(L, &panic);
-  return L;
+LUALIB_API lua_State *luaL_newstate (void) 
+{
+    lua_State *L = lua_newstate(l_alloc, NULL);
+    if (L) lua_atpanic(L, &panic);
+    return L;
 }
 
 

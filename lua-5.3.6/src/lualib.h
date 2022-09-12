@@ -54,7 +54,8 @@ LUALIB_API void (luaL_openlibs) (lua_State *L);
 
 
 #if !defined(lua_assert)
-#define lua_assert(x)	((void)0)
+    // 等于说 lua_assert() 啥也不干; 传入的参数直接被无视了;
+    #define lua_assert(x)	((void)0)
 #endif
 
 

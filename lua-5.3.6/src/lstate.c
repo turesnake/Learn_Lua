@@ -42,8 +42,9 @@
 ** created; the seed is used to randomize hashes.
 */
 #if !defined(luai_makeseed)
-#include <time.h>
-#define luai_makeseed()		cast(unsigned int, time(NULL))
+    #include <time.h>
+    // The call to time(NULL) returns the current calendar time (seconds since Jan 1, 1970).
+    #define luai_makeseed()		cast(unsigned int, time(NULL))
 #endif
 
 
@@ -71,23 +72,31 @@ typedef struct LG {
 
 
 /*
-** Compute an initial seed as random as possible. Rely on Address Space
-** Layout Randomization (if present) to increase randomness..
+    Compute an initial seed as random as possible. Rely on Address Space Layout Randomization (if present) to increase randomness..
+    依靠地址空间布局随机化（如果存在）来增加随机性...
 */
-#define addbuff(b,p,e) \
-  { size_t t = cast(size_t, e); \
-    memcpy(b + p, &t, sizeof(t)); p += sizeof(t); }
+#define addbuff(b,p,e)  \
+    {                   \
+        size_t t = cast(size_t, e); \
+        memcpy(b+p, &t, sizeof(t)); \
+        p += sizeof(t);  /*每调用一次, p 步进 4 or 8-bytes; */ \
+    }
 
-static unsigned int makeseed (lua_State *L) {
-  char buff[4 * sizeof(size_t)];
-  unsigned int h = luai_makeseed();
-  int p = 0;
-  addbuff(buff, p, L);  /* heap variable */
-  addbuff(buff, p, &h);  /* local variable */
-  addbuff(buff, p, luaO_nilobject);  /* global variable */
-  addbuff(buff, p, &lua_newstate);  /* public function */
-  lua_assert(p == sizeof(buff));
-  return luaS_hash(buff, p, h);
+
+static unsigned int makeseed (lua_State *L) 
+{
+    char buff[4 * sizeof(size_t)]; // 16-bytes
+    unsigned int h = luai_makeseed(); // 得到一个 当前时间值
+    int p = 0;
+
+    // 把一些 内存地址上的值, 逐个写到 buff 中去;
+    addbuff(buff, p, L);  /* heap variable */
+    addbuff(buff, p, &h);  /* local variable */
+    addbuff(buff, p, luaO_nilobject);  /* global variable */
+    addbuff(buff, p, &lua_newstate);  /* public function */
+
+    lua_assert(p == sizeof(buff));
+    return luaS_hash(buff, p, h);
 }
 
 
@@ -215,27 +224,31 @@ static void f_luaopen (lua_State *L, void *ud) {
 
 
 /*
-** preinitialize a thread with consistent values without allocating
-** any memory (to avoid errors)
+    preinitialize 预初始化 a thread with consistent values 
+    without allocating any memory (to avoid errors);
+    ---
+    就是将 lua_State 实例的一些元素 初始化为 0, NULL 这种不需要内存分配的 初始值;
 */
-static void preinit_thread (lua_State *L, global_State *g) {
-  G(L) = g;
-  L->stack = NULL;
-  L->ci = NULL;
-  L->nci = 0;
-  L->stacksize = 0;
-  L->twups = L;  /* thread has no upvalues */
-  L->errorJmp = NULL;
-  L->nCcalls = 0;
-  L->hook = NULL;
-  L->hookmask = 0;
-  L->basehookcount = 0;
-  L->allowhook = 1;
-  resethookcount(L);
-  L->openupval = NULL;
-  L->nny = 1;
-  L->status = LUA_OK;
-  L->errfunc = 0;
+static void preinit_thread (lua_State *L, global_State *g) 
+{
+    // 其实就是将参数 g 绑定给 L->l_G; 
+    G(L) = g;
+    L->stack = NULL;
+    L->ci = NULL;
+    L->nci = 0;
+    L->stacksize = 0;
+    L->twups = L;  /* thread has no upvalues */
+    L->errorJmp = NULL;
+    L->nCcalls = 0;
+    L->hook = NULL;
+    L->hookmask = 0;
+    L->basehookcount = 0;
+    L->allowhook = 1;
+    resethookcount(L); 
+    L->openupval = NULL;
+    L->nny = 1;
+    L->status = LUA_OK;
+    L->errfunc = 0;
 }
 
 
@@ -292,49 +305,60 @@ void luaE_freethread (lua_State *L, lua_State *L1) {
 }
 
 
-LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
-  int i;
-  lua_State *L;
-  global_State *g;
-  LG *l = cast(LG *, (*f)(ud, NULL, LUA_TTHREAD, sizeof(LG)));
-  if (l == NULL) return NULL;
-  L = &l->l.l;
-  g = &l->g;
-  L->next = NULL;
-  L->tt = LUA_TTHREAD;
-  g->currentwhite = bitmask(WHITE0BIT);
-  L->marked = luaC_white(g);
-  preinit_thread(L, g);
-  g->frealloc = f;
-  g->ud = ud;
-  g->mainthread = L;
-  g->seed = makeseed(L);
-  g->gcrunning = 0;  /* no GC while building state */
-  g->GCestimate = 0;
-  g->strt.size = g->strt.nuse = 0;
-  g->strt.hash = NULL;
-  setnilvalue(&g->l_registry);
-  g->panic = NULL;
-  g->version = NULL;
-  g->gcstate = GCSpause;
-  g->gckind = KGC_NORMAL;
-  g->allgc = g->finobj = g->tobefnz = g->fixedgc = NULL;
-  g->sweepgc = NULL;
-  g->gray = g->grayagain = NULL;
-  g->weak = g->ephemeron = g->allweak = NULL;
-  g->twups = NULL;
-  g->totalbytes = sizeof(LG);
-  g->GCdebt = 0;
-  g->gcfinnum = 0;
-  g->gcpause = LUAI_GCPAUSE;
-  g->gcstepmul = LUAI_GCMUL;
-  for (i=0; i < LUA_NUMTAGS; i++) g->mt[i] = NULL;
-  if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK) {
-    /* memory allocation error: free partial state */
-    close_state(L);
-    L = NULL;
-  }
-  return L;
+// 此处 f 具体为 l_alloc();
+LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) 
+{
+    int i;
+    lua_State       *L;
+    global_State    *g;
+
+    // 调用了函数 f, 并把返回值类型转换为 LG; 参数0,2作废, 只看1,3;
+    // 其实就是 为一个 LG 实例, 新分配了内存空间;
+    LG *l = cast( LG *, (*f)(ud, NULL, LUA_TTHREAD, sizeof(LG)) );
+    if (l == NULL) return NULL;
+
+    // 注意: 先运行 "->", 后运行 "&" 取地址;
+    L = &l->l.l;
+    g = &l->g;
+
+    L->next = NULL;
+    L->tt = LUA_TTHREAD;
+    g->currentwhite = bitmask(WHITE0BIT);
+    L->marked = luaC_white(g);
+
+    preinit_thread(L, g);
+
+    g->frealloc = f;
+    g->ud = ud;
+    g->mainthread = L;
+    g->seed = makeseed(L);
+    g->gcrunning = 0;  /* no GC while building state */
+    g->GCestimate = 0;
+    g->strt.size = g->strt.nuse = 0;
+    g->strt.hash = NULL;
+    
+    setnilvalue(&g->l_registry);
+    g->panic = NULL;
+    g->version = NULL;
+    g->gcstate = GCSpause;
+    g->gckind = KGC_NORMAL;
+    g->allgc = g->finobj = g->tobefnz = g->fixedgc = NULL;
+    g->sweepgc = NULL;
+    g->gray = g->grayagain = NULL;
+    g->weak = g->ephemeron = g->allweak = NULL;
+    g->twups = NULL;
+    g->totalbytes = sizeof(LG);
+    g->GCdebt = 0;
+    g->gcfinnum = 0;
+    g->gcpause = LUAI_GCPAUSE;
+    g->gcstepmul = LUAI_GCMUL;
+    for (i=0; i < LUA_NUMTAGS; i++) g->mt[i] = NULL;
+    if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK) {
+        /* memory allocation error: free partial state */
+        close_state(L);
+        L = NULL;
+    }
+    return L;
 }
 
 

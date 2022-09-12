@@ -73,8 +73,8 @@ typedef struct GCObject GCObject;
 
 
 /*
-** Common Header for all collectable objects (in macro form, to be
-** included in other objects)
+    Common Header for all collectable objects 可收集对象
+    (in macro form, to be included in other objects)
 */
 #define CommonHeader	GCObject *next; lu_byte tt; lu_byte marked
 
@@ -106,17 +106,23 @@ typedef union Value {
   lua_Number n;    /* float numbers */
 } Value;
 
-
+/*
+    Value value_    --
+    int tt_         -- 类型
+*/
 #define TValuefields	Value value_; int tt_
 
-
-typedef struct lua_TValue {
-  TValuefields;
+typedef struct lua_TValue 
+{
+    TValuefields;
 } TValue;
 
 
 
-/* macro defining a nil value */
+/* 
+    macro defining a nil value;
+    虽然但是, 为啥要这么写...
+*/
 #define NILCONSTANT	{NULL}, LUA_TNIL
 
 

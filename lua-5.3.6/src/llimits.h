@@ -31,7 +31,11 @@ typedef long l_mem;
 #endif				/* } */
 
 
-/* chars used as small naturals (so that 'char' is reserved for characters) */
+/* 
+  chars used as small naturals 
+  (so that 'char' is reserved for characters) 
+  (目的是为了保留 "char" 这个关键词)
+*/
 typedef unsigned char lu_byte;
 
 
@@ -82,13 +86,14 @@ typedef LUAI_UACINT l_uacInt;
 
 /* internal assertions for in-house debugging */
 #if defined(lua_assert)
-#define check_exp(c,e)		(lua_assert(c), (e))
-/* to avoid problems with conditions too long */
-#define lua_longassert(c)	((c) ? (void)0 : lua_assert(0))
+    #define check_exp(c,e)		(lua_assert(c), (e))
+    /* to avoid problems with conditions too long */
+    #define lua_longassert(c)	((c) ? (void)0 : lua_assert(0))
 #else
-#define lua_assert(c)		((void)0)
-#define check_exp(c,e)		(e)
-#define lua_longassert(c)	((void)0)
+    // 等于说 lua_assert() 啥也不干; 传入的参数直接被无视了;
+    #define lua_assert(c)		((void)0)
+    #define check_exp(c,e)		(e)
+    #define lua_longassert(c)	((void)0)
 #endif
 
 /*
