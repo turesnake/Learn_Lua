@@ -43,6 +43,7 @@
 ** 2 - regular C function (closure)
 */
 
+
 /* Variant tags for functions */
 #define LUA_TLCL	(LUA_TFUNCTION | (0 << 4))  /* Lua closure */
 #define LUA_TLCF	(LUA_TFUNCTION | (1 << 4))  /* light C function */
@@ -75,6 +76,9 @@ typedef struct GCObject GCObject;
 /*
     Common Header for all collectable objects 可收集对象
     (in macro form, to be included in other objects)
+    -- GCObject *next   -- 指向下一个GC对象，形成链表，GC会用到
+    -- lu_byte tt       -- 对象类型
+    -- lu_byte marked   -- 对象标记，GC会用到
 */
 #define CommonHeader	GCObject *next; lu_byte tt; lu_byte marked
 
@@ -82,8 +86,9 @@ typedef struct GCObject GCObject;
 /*
 ** Common type has only the common header
 */
-struct GCObject {
-  CommonHeader;
+struct GCObject 
+{
+    CommonHeader;
 };
 
 
@@ -97,18 +102,20 @@ struct GCObject {
 /*
 ** Union of all Lua values
 */
-typedef union Value {
-  GCObject *gc;    /* collectable objects */
-  void *p;         /* light userdata */
-  int b;           /* booleans */
-  lua_CFunction f; /* light C functions */
-  lua_Integer i;   /* integer numbers */
-  lua_Number n;    /* float numbers */
+typedef union Value 
+{
+    GCObject *gc;    /* collectable objects 可回收对象; gc */
+    void *p;         /* light userdata */
+    int b;           /* booleans */
+    lua_CFunction f; /* light C functions */
+    lua_Integer i;   /* integer numbers */
+    lua_Number n;    /* float numbers */
 } Value;
 
+
 /*
-    Value value_    --
-    int tt_         -- 类型
+    Value value_    -- 对象值
+    int tt_         -- 对象类型
 */
 #define TValuefields	Value value_; int tt_
 
@@ -387,51 +394,104 @@ typedef union UUdata {
 
 
 /*
-** Description of an upvalue for function prototypes
+    Description of an upvalue for function prototypes
+    ---
+    函数原型体内, 一个 upvalue 的结构;
 */
-typedef struct Upvaldesc {
-  TString *name;  /* upvalue name (for debug information) */
-  lu_byte instack;  /* whether it is in stack (register) */
-  lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
+typedef struct Upvaldesc 
+{
+    TString *name;  /* upvalue name (for debug information) */
+
+    /*
+        -1-
+            upvalue 如果是上一层函数的局部变量，且这个上层函数还在活动中，那么该局部变量一定还在上层函数的栈中。
+            此时，instack 为 1，表明它在栈中，idx 指定在栈中的索引，(相对于上层函数的栈基址)
+        -2-
+            upvalue 如果是上一层函数之外的局部变量,
+            首先 上层函数 func 会把 x 当成 upvalue 记录下来，然后 innerfunc 再从 func 的 upvalue 数组寻找。
+            所以这种情况下，instack 为 0，则idx表示上层函数 upvalue 列表的索引;
+
+        实际的 upvalue 引用 是在 函数对象 中的，这里只是一个描述信息，函数对象 要根据这个信息才能引用到 upvalue。
+    */
+
+    lu_byte instack;  /* whether it is in stack (register) */
+    lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
 } Upvaldesc;
 
 
 /*
-** Description of a local variable for function prototypes
-** (used for debug information)
+    Description of a local variable for function prototypes
+    (used for debug information)
+    ---
+    函数体内的 局部变量 的存储结构;
 */
-typedef struct LocVar {
-  TString *varname;
-  int startpc;  /* first point where variable is active */
-  int endpc;    /* first point where variable is dead */
+typedef struct LocVar 
+{
+    TString *varname;
+
+    // tpr: 下二值 记录了 这个局部变量 在函数体内的 存在周期 ? 
+    int startpc;  /* first point where variable is active */
+    int endpc;    /* first point where variable is dead */
 } LocVar;
 
 
 /*
-** Function Prototypes
+** Function Prototypes -- 函数原型
 */
-typedef struct Proto {
-  CommonHeader;
-  lu_byte numparams;  /* number of fixed parameters */
-  lu_byte is_vararg;
-  lu_byte maxstacksize;  /* number of registers needed by this function */
-  int sizeupvalues;  /* size of 'upvalues' */
-  int sizek;  /* size of 'k' */
-  int sizecode;
-  int sizelineinfo;
-  int sizep;  /* size of 'p' */
-  int sizelocvars;
-  int linedefined;  /* debug information  */
-  int lastlinedefined;  /* debug information  */
-  TValue *k;  /* constants used by the function */
-  Instruction *code;  /* opcodes */
-  struct Proto **p;  /* functions defined inside the function */
-  int *lineinfo;  /* map from opcodes to source lines (debug information) */
-  LocVar *locvars;  /* information about local variables (debug information) */
-  Upvaldesc *upvalues;  /* upvalue information */
-  struct LClosure *cache;  /* last-created closure with this prototype */
-  TString  *source;  /* used for debug information */
-  GCObject *gclist;
+typedef struct Proto 
+{
+    CommonHeader;
+    lu_byte numparams;  /* number of fixed parameters */
+
+    // 是否有可变参数
+    lu_byte is_vararg;
+
+    // number of registers needed by this function
+    // 这些寄存器 通常用来存储 函数本地的 局部变量;
+    // 在创建 lua 函数时, 会在栈上预留这么多空间;
+    // 此段空间 不包含 可变参数 的数量; 
+    lu_byte maxstacksize;
+    int sizeupvalues;  /* size of 'upvalues' */
+    int sizek;  /* size of 'k'; 常量数量 */
+    int sizecode; // 指令数量
+    int sizelineinfo; // 行信息数量
+
+    // size of 'p'
+    // 内嵌原型数量
+    int sizep;
+    int sizelocvars; // 本地变量的数量
+    int linedefined;  /* debug information; 函数进入的行  */
+    int lastlinedefined;  /* debug information; 函数返回的行  */
+
+    // constants used by the function
+    // 本函数使用的所有 常量;  
+    // 就是 lua 函数内部的 常量变量, 比如 数字, 字符串, bool变量, nil;
+    TValue *k;
+
+    // opcodes -- 指令数组
+    Instruction *code;
+
+    // functions defined inside the function
+    // 内嵌函数的 原型列表
+    struct Proto **p;
+    int *lineinfo;  /* map from opcodes to source lines (debug information) */
+    
+    // information about local variables (debug information)
+    // 函数本地的 局部变量:
+    // 比如: 固定参数, 可变参数, 本地变量(非常量的那些);
+    LocVar *locvars;
+    Upvaldesc *upvalues;  /* upvalue information */
+
+    // last-created closure with this prototype
+    // 使用该原型创建的最后闭包(缓存)
+    struct LClosure *cache;
+
+    // used for debug information
+    // 源代码文件
+    TString  *source;
+
+    // 灰对象列表，最后由 g->gray 串连起来
+    GCObject *gclist;
 } Proto;
 
 
@@ -446,26 +506,31 @@ typedef struct UpVal UpVal;
 ** Closures
 */
 
+// gclist为灰对象列表，最后由g->gray串连起来
 #define ClosureHeader \
 	CommonHeader; lu_byte nupvalues; GCObject *gclist
 
-typedef struct CClosure {
-  ClosureHeader;
-  lua_CFunction f;
-  TValue upvalue[1];  /* list of upvalues */
+
+typedef struct CClosure 
+{
+    ClosureHeader;
+    lua_CFunction f;
+    TValue upvalue[1];  /* list of upvalues */
 } CClosure;
 
 
-typedef struct LClosure {
-  ClosureHeader;
-  struct Proto *p;
-  UpVal *upvals[1];  /* list of upvalues */
+typedef struct LClosure 
+{
+    ClosureHeader;
+    struct Proto *p;
+    UpVal *upvals[1];  /* list of upvalues */
 } LClosure;
 
 
-typedef union Closure {
-  CClosure c;
-  LClosure l;
+typedef union Closure 
+{
+    CClosure c; // c   闭包
+    LClosure l; // lua 闭包
 } Closure;
 
 
@@ -475,15 +540,17 @@ typedef union Closure {
 
 
 /*
-** Tables
+    ================================ Tables ================================
 */
 
-typedef union TKey {
-  struct {
-    TValuefields;
-    int next;  /* for chaining (offset for next node) */
-  } nk;
-  TValue tvk;
+typedef union TKey 
+{
+    struct 
+    {
+        TValuefields;
+        int next;  /* for chaining (offset for next node) */
+    } nk;
+    TValue tvk;
 } TKey;
 
 
@@ -494,22 +561,41 @@ typedef union TKey {
 	  (void)L; checkliveness(L,io_); }
 
 
-typedef struct Node {
-  TValue i_val;
-  TKey i_key;
+// 下面的 table 中 hash 段使用;
+typedef struct Node 
+{
+    TValue i_val;
+    TKey i_key;
 } Node;
 
 
-typedef struct Table {
-  CommonHeader;
-  lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
-  lu_byte lsizenode;  /* log2 of size of 'node' array */
-  unsigned int sizearray;  /* size of 'array' array */
-  TValue *array;  /* array part */
-  Node *node;
-  Node *lastfree;  /* any free position is before this position */
-  struct Table *metatable;
-  GCObject *gclist;
+/*
+    lua table 结构体
+*/
+typedef struct Table 
+{
+    CommonHeader;
+    lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
+
+    // log2 of size of 'node' array
+    // 哈希部分的长度对数：1 << lsizenode 才能得到实际的size
+    lu_byte lsizenode;
+
+    // size of 'array' array
+    unsigned int sizearray;
+    TValue *array;  /* array part */
+
+    // 哈希部分，为 Node 组成的数组
+    Node *node;
+
+    // any free position is before this position
+    // 指明空闲槽位
+    Node *lastfree;
+
+    struct Table *metatable;
+
+    // GC相关的链表
+    GCObject *gclist;
 } Table;
 
 

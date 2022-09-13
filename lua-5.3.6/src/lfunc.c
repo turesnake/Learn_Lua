@@ -80,19 +80,20 @@ UpVal *luaF_findupval (lua_State *L, StkId level) {
 }
 
 
-void luaF_close (lua_State *L, StkId level) {
-  UpVal *uv;
-  while (L->openupval != NULL && (uv = L->openupval)->v >= level) {
-    lua_assert(upisopen(uv));
-    L->openupval = uv->u.open.next;  /* remove from 'open' list */
-    if (uv->refcount == 0)  /* no references? */
-      luaM_free(L, uv);  /* free upvalue */
-    else {
-      setobj(L, &uv->u.value, uv->v);  /* move value to upvalue slot */
-      uv->v = &uv->u.value;  /* now current value lives here */
-      luaC_upvalbarrier(L, uv);
+void luaF_close (lua_State *L, StkId level) 
+{
+    UpVal *uv;
+    while (L->openupval != NULL && (uv = L->openupval)->v >= level) {
+        lua_assert(upisopen(uv));
+        L->openupval = uv->u.open.next;  /* remove from 'open' list */
+        if (uv->refcount == 0)  /* no references? */
+        luaM_free(L, uv);  /* free upvalue */
+        else {
+        setobj(L, &uv->u.value, uv->v);  /* move value to upvalue slot */
+        uv->v = &uv->u.value;  /* now current value lives here */
+        luaC_upvalbarrier(L, uv);
+        }
     }
-  }
 }
 
 

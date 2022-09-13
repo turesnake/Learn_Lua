@@ -764,27 +764,28 @@ static void createclibstable (lua_State *L) {
 }
 
 
-LUAMOD_API int luaopen_package (lua_State *L) {
-  createclibstable(L);
-  luaL_newlib(L, pk_funcs);  /* create 'package' table */
-  createsearcherstable(L);
-  /* set paths */
-  setpath(L, "path", LUA_PATH_VAR, LUA_PATH_DEFAULT);
-  setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
-  /* store config information */
-  lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
-                     LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
-  lua_setfield(L, -2, "config");
-  /* set field 'loaded' */
-  luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
-  lua_setfield(L, -2, "loaded");
-  /* set field 'preload' */
-  luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
-  lua_setfield(L, -2, "preload");
-  lua_pushglobaltable(L);
-  lua_pushvalue(L, -2);  /* set 'package' as upvalue for next lib */
-  luaL_setfuncs(L, ll_funcs, 1);  /* open lib into global table */
-  lua_pop(L, 1);  /* pop global table */
-  return 1;  /* return 'package' table */
+LUAMOD_API int luaopen_package (lua_State *L) 
+{
+    createclibstable(L);
+    luaL_newlib(L, pk_funcs);  /* create 'package' table */
+    createsearcherstable(L);
+    /* set paths */
+    setpath(L, "path", LUA_PATH_VAR, LUA_PATH_DEFAULT);
+    setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
+    /* store config information */
+    lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
+                        LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
+    lua_setfield(L, -2, "config");
+    /* set field 'loaded' */
+    luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
+    lua_setfield(L, -2, "loaded");
+    /* set field 'preload' */
+    luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
+    lua_setfield(L, -2, "preload");
+    lua_pushglobaltable(L);
+    lua_pushvalue(L, -2);  /* set 'package' as upvalue for next lib */
+    luaL_setfuncs(L, ll_funcs, 1);  /* open lib into global table */
+    lua_pop(L, 1);  /* pop global table */
+    return 1;  /* return 'package' table */
 }
 

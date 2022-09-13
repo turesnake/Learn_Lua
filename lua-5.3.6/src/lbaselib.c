@@ -483,16 +483,17 @@ static const luaL_Reg base_funcs[] = {
 };
 
 
-LUAMOD_API int luaopen_base (lua_State *L) {
-  /* open lib into global table */
-  lua_pushglobaltable(L);
-  luaL_setfuncs(L, base_funcs, 0);
-  /* set global _G */
-  lua_pushvalue(L, -1);
-  lua_setfield(L, -2, "_G");
-  /* set global _VERSION */
-  lua_pushliteral(L, LUA_VERSION);
-  lua_setfield(L, -2, "_VERSION");
-  return 1;
+LUAMOD_API int luaopen_base (lua_State *L) 
+{
+    /* open lib into global table */
+    lua_pushglobaltable(L);
+    luaL_setfuncs(L, base_funcs, 0);
+    /* set global _G */
+    lua_pushvalue(L, -1);
+    lua_setfield(L, -2, "_G");
+    /* set global _VERSION */
+    lua_pushliteral(L, LUA_VERSION);
+    lua_setfield(L, -2, "_VERSION");
+    return 1;
 }
 

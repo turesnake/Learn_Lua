@@ -29,11 +29,11 @@
 
 
 #if !defined(LUAI_GCPAUSE)
-#define LUAI_GCPAUSE	200  /* 200% */
+    #define LUAI_GCPAUSE	200  /* 200% */
 #endif
 
 #if !defined(LUAI_GCMUL)
-#define LUAI_GCMUL	200 /* GC runs 'twice the speed' of memory allocation */
+    #define LUAI_GCMUL	200 /* GC runs 'twice the speed' of memory allocation */
 #endif
 
 
@@ -157,23 +157,24 @@ void luaE_shrinkCI (lua_State *L) {
 }
 
 
-static void stack_init (lua_State *L1, lua_State *L) {
-  int i; CallInfo *ci;
-  /* initialize stack array */
-  L1->stack = luaM_newvector(L, BASIC_STACK_SIZE, TValue);
-  L1->stacksize = BASIC_STACK_SIZE;
-  for (i = 0; i < BASIC_STACK_SIZE; i++)
-    setnilvalue(L1->stack + i);  /* erase new stack */
-  L1->top = L1->stack;
-  L1->stack_last = L1->stack + L1->stacksize - EXTRA_STACK;
-  /* initialize first ci */
-  ci = &L1->base_ci;
-  ci->next = ci->previous = NULL;
-  ci->callstatus = 0;
-  ci->func = L1->top;
-  setnilvalue(L1->top++);  /* 'function' entry for this 'ci' */
-  ci->top = L1->top + LUA_MINSTACK;
-  L1->ci = ci;
+static void stack_init (lua_State *L1, lua_State *L) 
+{
+    int i; CallInfo *ci;
+    /* initialize stack array */
+    L1->stack = luaM_newvector(L, BASIC_STACK_SIZE, TValue);
+    L1->stacksize = BASIC_STACK_SIZE;
+    for (i = 0; i < BASIC_STACK_SIZE; i++)
+        setnilvalue(L1->stack + i);  /* erase new stack */
+    L1->top = L1->stack;
+    L1->stack_last = L1->stack + L1->stacksize - EXTRA_STACK;
+    /* initialize first ci */
+    ci = &L1->base_ci;
+    ci->next = ci->previous = NULL;
+    ci->callstatus = 0;
+    ci->func = L1->top;
+    setnilvalue(L1->top++);  /* 'function' entry for this 'ci' */
+    ci->top = L1->top + LUA_MINSTACK;
+    L1->ci = ci;
 }
 
 
@@ -188,20 +189,25 @@ static void freestack (lua_State *L) {
 
 
 /*
-** Create registry table and its predefined values
+    Create registry table and its predefined values
 */
-static void init_registry (lua_State *L, global_State *g) {
-  TValue temp;
-  /* create registry */
-  Table *registry = luaH_new(L);
-  sethvalue(L, &g->l_registry, registry);
-  luaH_resize(L, registry, LUA_RIDX_LAST, 0);
-  /* registry[LUA_RIDX_MAINTHREAD] = L */
-  setthvalue(L, &temp, L);  /* temp = L */
-  luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, &temp);
-  /* registry[LUA_RIDX_GLOBALS] = table of globals */
-  sethvalue(L, &temp, luaH_new(L));  /* temp = new table (global table) */
-  luaH_setint(L, registry, LUA_RIDX_GLOBALS, &temp);
+static void init_registry (lua_State *L, global_State *g) 
+{
+    TValue temp;
+    /* create registry */
+    Table *registry = luaH_new(L);
+    sethvalue(L, &g->l_registry, registry);
+    luaH_resize(L, registry, LUA_RIDX_LAST, 0);
+    /* registry[LUA_RIDX_MAINTHREAD] = L */
+
+    // 保存主线程
+    setthvalue(L, &temp, L);  /* temp = L */
+    luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, &temp);
+    /* registry[LUA_RIDX_GLOBALS] = table of globals */
+
+    // 创建全局环境
+    sethvalue(L, &temp, luaH_new(L));  /* temp = new table (global table) */
+    luaH_setint(L, registry, LUA_RIDX_GLOBALS, &temp);
 }
 
 
@@ -209,17 +215,22 @@ static void init_registry (lua_State *L, global_State *g) {
 ** open parts of the state that may cause memory-allocation errors.
 ** ('g->version' != NULL flags that the state was completely build)
 */
-static void f_luaopen (lua_State *L, void *ud) {
-  global_State *g = G(L);
-  UNUSED(ud);
-  stack_init(L, L);  /* init stack */
-  init_registry(L, g);
-  luaS_init(L);
-  luaT_init(L);
-  luaX_init(L);
-  g->gcrunning = 1;  /* allow gc */
-  g->version = lua_version(NULL);
-  luai_userstateopen(L);
+static void f_luaopen (lua_State *L, void *ud) 
+{
+    global_State *g = G(L);
+    UNUSED(ud); // 此变量被弃用
+    
+    // 初始化主线程的栈
+    stack_init(L, L);
+    init_registry(L, g);
+    luaS_init(L); // 字符串
+    luaT_init(L); // 元表
+    luaX_init(L); // 标识符
+    g->gcrunning = 1;  /* allow gc */
+    g->version = lua_version(NULL);
+
+    // 用户自定义的 callback
+    luai_userstateopen(L);
 }
 
 
@@ -252,16 +263,17 @@ static void preinit_thread (lua_State *L, global_State *g)
 }
 
 
-static void close_state (lua_State *L) {
-  global_State *g = G(L);
-  luaF_close(L, L->stack);  /* close all upvalues for this thread */
-  luaC_freeallobjects(L);  /* collect all objects */
-  if (g->version)  /* closing a fully built state? */
-    luai_userstateclose(L);
-  luaM_freearray(L, G(L)->strt.hash, G(L)->strt.size);
-  freestack(L);
-  lua_assert(gettotalbytes(g) == sizeof(LG));
-  (*g->frealloc)(g->ud, fromstate(L), sizeof(LG), 0);  /* free main block */
+static void close_state (lua_State *L) 
+{
+    global_State *g = G(L);
+    luaF_close(L, L->stack);  /* close all upvalues for this thread */
+    luaC_freeallobjects(L);  /* collect all objects */
+    if (g->version)  /* closing a fully built state? */
+        luai_userstateclose(L);
+    luaM_freearray(L, G(L)->strt.hash, G(L)->strt.size);
+    freestack(L);
+    lua_assert(gettotalbytes(g) == sizeof(LG));
+    (*g->frealloc)(g->ud, fromstate(L), sizeof(LG), 0);  /* free main block */
 }
 
 
@@ -352,8 +364,12 @@ LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud)
     g->gcfinnum = 0;
     g->gcpause = LUAI_GCPAUSE;
     g->gcstepmul = LUAI_GCMUL;
-    for (i=0; i < LUA_NUMTAGS; i++) g->mt[i] = NULL;
-    if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK) {
+
+    for (i=0; i < LUA_NUMTAGS; i++) 
+        g->mt[i] = NULL;
+
+    if (luaD_rawrunprotected(L, f_luaopen, NULL) != LUA_OK) 
+    {
         /* memory allocation error: free partial state */
         close_state(L);
         L = NULL;

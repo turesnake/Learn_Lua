@@ -52,39 +52,42 @@
 */
 #if !defined(LUAI_THROW)				/* { */
 
-#if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)	/* { */
+    #if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)	/* { */
 
-/* C++ exceptions */
-#define LUAI_THROW(L,c)		throw(c)
-#define LUAI_TRY(L,c,a) \
-	try { a } catch(...) { if ((c)->status == 0) (c)->status = -1; }
-#define luai_jmpbuf		int  /* dummy variable */
+        /* C++ exceptions */
+        #define LUAI_THROW(L,c)		throw(c)
+        #define LUAI_TRY(L,c,a) \
+            try { a } catch(...) { if ((c)->status == 0) (c)->status = -1; }
+        #define luai_jmpbuf		int  /* dummy variable */
 
-#elif defined(LUA_USE_POSIX)				/* }{ */
+    #elif defined(LUA_USE_POSIX)				/* }{ */
 
-/* in POSIX, try _longjmp/_setjmp (more efficient) */
-#define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
-#define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
-#define luai_jmpbuf		jmp_buf
+        /* in POSIX, try _longjmp/_setjmp (more efficient) */
+        #define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
+        #define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
+        // The "jmp_buf" type is an array type suitable for storing information to restore a calling environment.
+        #define luai_jmpbuf		jmp_buf
 
-#else							/* }{ */
+    #else							/* }{ */
 
-/* ISO C handling with long jumps */
-#define LUAI_THROW(L,c)		longjmp((c)->b, 1)
-#define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
-#define luai_jmpbuf		jmp_buf
+        /* ISO C handling with long jumps */
+        #define LUAI_THROW(L,c)		longjmp((c)->b, 1)
+        #define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
+        //The "jmp_buf" type is an array type suitable for storing information to restore a calling environment.
+        #define luai_jmpbuf		jmp_buf
 
-#endif							/* } */
+    #endif							/* } */
 
 #endif							/* } */
 
 
 
 /* chain list of long jump buffers */
-struct lua_longjmp {
-  struct lua_longjmp *previous;
-  luai_jmpbuf b;
-  volatile int status;  /* error code */
+struct lua_longjmp 
+{
+    struct lua_longjmp *previous;
+    luai_jmpbuf b;
+    volatile int status;  /* error code */
 };
 
 
@@ -133,19 +136,21 @@ l_noret luaD_throw (lua_State *L, int errcode) {
 }
 
 
-int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud) {
-  unsigned short oldnCcalls = L->nCcalls;
-  struct lua_longjmp lj;
-  lj.status = LUA_OK;
-  lj.previous = L->errorJmp;  /* chain new error handler */
-  L->errorJmp = &lj;
-  LUAI_TRY(L, &lj,
-    (*f)(L, ud);
-  );
-  L->errorJmp = lj.previous;  /* restore old error handler */
-  L->nCcalls = oldnCcalls;
-  return lj.status;
+int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud) 
+{
+    unsigned short oldnCcalls = L->nCcalls;
+    struct lua_longjmp lj;
+    lj.status = LUA_OK;
+    lj.previous = L->errorJmp;  /* chain new error handler */
+    L->errorJmp = &lj;
+    LUAI_TRY(L, &lj,
+        (*f)(L, ud);
+    );
+    L->errorJmp = lj.previous;  /* restore old error handler */
+    L->nCcalls = oldnCcalls;
+    return lj.status;
 }
+
 
 /* }====================================================== */
 
@@ -410,64 +415,65 @@ int luaD_poscall (lua_State *L, CallInfo *ci, StkId firstResult, int nres) {
 ** the execution ('luaV_execute') to the caller, to allow stackless
 ** calls.) Returns true iff function has been executed (C function).
 */
-int luaD_precall (lua_State *L, StkId func, int nresults) {
-  lua_CFunction f;
-  CallInfo *ci;
-  switch (ttype(func)) {
-    case LUA_TCCL:  /* C closure */
-      f = clCvalue(func)->f;
-      goto Cfunc;
-    case LUA_TLCF:  /* light C function */
-      f = fvalue(func);
-     Cfunc: {
-      int n;  /* number of returns */
-      checkstackp(L, LUA_MINSTACK, func);  /* ensure minimum stack size */
-      ci = next_ci(L);  /* now 'enter' new function */
-      ci->nresults = nresults;
-      ci->func = func;
-      ci->top = L->top + LUA_MINSTACK;
-      lua_assert(ci->top <= L->stack_last);
-      ci->callstatus = 0;
-      if (L->hookmask & LUA_MASKCALL)
-        luaD_hook(L, LUA_HOOKCALL, -1);
-      lua_unlock(L);
-      n = (*f)(L);  /* do the actual call */
-      lua_lock(L);
-      api_checknelems(L, n);
-      luaD_poscall(L, ci, L->top - n, n);
-      return 1;
+int luaD_precall (lua_State *L, StkId func, int nresults) 
+{
+    lua_CFunction f;
+    CallInfo *ci;
+    switch (ttype(func)) {
+        case LUA_TCCL:  /* C closure */
+        f = clCvalue(func)->f;
+        goto Cfunc;
+        case LUA_TLCF:  /* light C function */
+        f = fvalue(func);
+        Cfunc: {
+        int n;  /* number of returns */
+        checkstackp(L, LUA_MINSTACK, func);  /* ensure minimum stack size */
+        ci = next_ci(L);  /* now 'enter' new function */
+        ci->nresults = nresults;
+        ci->func = func;
+        ci->top = L->top + LUA_MINSTACK;
+        lua_assert(ci->top <= L->stack_last);
+        ci->callstatus = 0;
+        if (L->hookmask & LUA_MASKCALL)
+            luaD_hook(L, LUA_HOOKCALL, -1);
+        lua_unlock(L);
+        n = (*f)(L);  /* do the actual call */
+        lua_lock(L);
+        api_checknelems(L, n);
+        luaD_poscall(L, ci, L->top - n, n);
+        return 1;
+        }
+        case LUA_TLCL: {  /* Lua function: prepare its call */
+        StkId base;
+        Proto *p = clLvalue(func)->p;
+        int n = cast_int(L->top - func) - 1;  /* number of real arguments */
+        int fsize = p->maxstacksize;  /* frame size */
+        checkstackp(L, fsize, func);
+        if (p->is_vararg)
+            base = adjust_varargs(L, p, n);
+        else {  /* non vararg function */
+            for (; n < p->numparams; n++)
+            setnilvalue(L->top++);  /* complete missing arguments */
+            base = func + 1;
+        }
+        ci = next_ci(L);  /* now 'enter' new function */
+        ci->nresults = nresults;
+        ci->func = func;
+        ci->u.l.base = base;
+        L->top = ci->top = base + fsize;
+        lua_assert(ci->top <= L->stack_last);
+        ci->u.l.savedpc = p->code;  /* starting point */
+        ci->callstatus = CIST_LUA;
+        if (L->hookmask & LUA_MASKCALL)
+            callhook(L, ci);
+        return 0;
+        }
+        default: {  /* not a function */
+        checkstackp(L, 1, func);  /* ensure space for metamethod */
+        tryfuncTM(L, func);  /* try to get '__call' metamethod */
+        return luaD_precall(L, func, nresults);  /* now it must be a function */
+        }
     }
-    case LUA_TLCL: {  /* Lua function: prepare its call */
-      StkId base;
-      Proto *p = clLvalue(func)->p;
-      int n = cast_int(L->top - func) - 1;  /* number of real arguments */
-      int fsize = p->maxstacksize;  /* frame size */
-      checkstackp(L, fsize, func);
-      if (p->is_vararg)
-        base = adjust_varargs(L, p, n);
-      else {  /* non vararg function */
-        for (; n < p->numparams; n++)
-          setnilvalue(L->top++);  /* complete missing arguments */
-        base = func + 1;
-      }
-      ci = next_ci(L);  /* now 'enter' new function */
-      ci->nresults = nresults;
-      ci->func = func;
-      ci->u.l.base = base;
-      L->top = ci->top = base + fsize;
-      lua_assert(ci->top <= L->stack_last);
-      ci->u.l.savedpc = p->code;  /* starting point */
-      ci->callstatus = CIST_LUA;
-      if (L->hookmask & LUA_MASKCALL)
-        callhook(L, ci);
-      return 0;
-    }
-    default: {  /* not a function */
-      checkstackp(L, 1, func);  /* ensure space for metamethod */
-      tryfuncTM(L, func);  /* try to get '__call' metamethod */
-      return luaD_precall(L, func, nresults);  /* now it must be a function */
-    }
-  }
 }
 
 
@@ -487,17 +493,27 @@ static void stackerror (lua_State *L) {
 
 
 /*
-** Call a function (C or Lua). The function to be called is at *func.
-** The arguments are on the stack, right after the function.
-** When returns, all the results are on the stack, starting at the original
-** function position.
+    Call a function (C or Lua). The function to be called is at *func.
+    The arguments are on the stack, right after the function.
+    When returns, all the results are on the stack, starting at the original function position.
+    ---
+    调用一个函数(C或Lua)，函数在 func 这个栈地址上，再往上就是参数
+    当函数调用完，func 和 参数都会出栈，返回参数都压在栈上
+    ---
+    Lua 的函数调用都遵循一个规则，就是首先函数入栈，然后参数入栈，在调用完之后函数和参数都出栈，
+    在函数中临时压栈的值也会出栈，最后把函数的返回结果入栈，返回给外层函数。
+    也就是说，函数返回之后的栈应该等于进入之前的栈，加上返回结果。
 */
-void luaD_call (lua_State *L, StkId func, int nResults) {
-  if (++L->nCcalls >= LUAI_MAXCCALLS)
-    stackerror(L);
-  if (!luaD_precall(L, func, nResults))  /* is a Lua function? */
-    luaV_execute(L);  /* call it */
-  L->nCcalls--;
+void luaD_call (lua_State *L, StkId func, int nResults) 
+{
+    // 从C层调用一个函数的嵌套限制，LUAI_MAXCCALLS=200
+    if (++L->nCcalls >= LUAI_MAXCCALLS)
+        stackerror(L);
+    // 准备调用，返回 0 表示 Lua 函数，则要用下面的 luaV_execute 执行字节码。
+    // 否则是 C 函数，已经直接被调用
+    if (!luaD_precall(L, func, nResults))  /* is a Lua function? */
+        luaV_execute(L);  /* call it */
+    L->nCcalls--;
 }
 
 

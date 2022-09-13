@@ -28,9 +28,10 @@
 #define LUA_PRELOAD_TABLE	"_PRELOAD"
 
 
-typedef struct luaL_Reg {
-  const char *name;
-  lua_CFunction func;
+typedef struct luaL_Reg 
+{
+    const char *name;
+    lua_CFunction func;
 } luaL_Reg;
 
 

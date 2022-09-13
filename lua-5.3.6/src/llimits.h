@@ -230,9 +230,11 @@ typedef unsigned long Instruction;
 
 
 /*
-** these macros allow user-specific actions on threads when you defined
-** LUAI_EXTRASPACE and need to do something extra when a thread is
-** created/deleted/resumed/yielded.
+    these macros allow user-specific actions on threads when you defined
+    LUAI_EXTRASPACE and need to do something extra when a thread is
+    created / deleted / resumed / yielded.
+    ---
+    需要用户来定义这些 宏函数, 否则它们为 空函数; (有点类似 callback)
 */
 #if !defined(luai_userstateopen)
 #define luai_userstateopen(L)		((void)L)

@@ -83,31 +83,43 @@ typedef struct stringtable
 
 /*
 ** Information about a call.
-** When a thread yields, 'func' is adjusted to pretend that the
+** When a thread yields, 'func' is adjusted to pretend 假装 that the
 ** top function has only the yielded values in its stack; in that
 ** case, the actual 'func' value is saved in field 'extra'.
 ** When a function calls another with a continuation, 'extra' keeps
 ** the function index so that, in case of errors, the continuation
 ** function can be called with the correct top.
 */
-typedef struct CallInfo {
-  StkId func;  /* function index in the stack */
-  StkId	top;  /* top for this function */
-  struct CallInfo *previous, *next;  /* dynamic call link */
-  union {
-    struct {  /* only for Lua functions */
-      StkId base;  /* base for this function */
-      const Instruction *savedpc;
-    } l;
-    struct {  /* only for C functions */
-      lua_KFunction k;  /* continuation in case of yields */
-      ptrdiff_t old_errfunc;
-      lua_KContext ctx;  /* context info. in case of yields */
-    } c;
-  } u;
-  ptrdiff_t extra;
-  short nresults;  /* expected number of results from this function */
-  unsigned short callstatus;
+typedef struct CallInfo 
+{
+	// 该栈位置保存调用关联的函数
+	StkId func;  /* function index in the stack */
+
+	// 该函数的栈顶引用，[func, top]就是这个函数栈范围
+	// [func, top] 就是这个调用使用的栈范围
+	StkId	top;  /* top for this function */
+
+	// 调用链表, 双向链表
+	struct CallInfo *previous, *next;  /* dynamic call link */
+	union {
+		struct {  /* only for Lua functions */
+			// 栈基址，base 往下这部分为函数的可变参数，base 往上为函数的固定参数，和本地变量
+			StkId base;  /* base for this function */
+			// 正在执行指令
+			const Instruction *savedpc;
+		} l;
+		struct {  /* only for C functions */
+			// 延续函数
+			lua_KFunction k;  /* continuation in case of yields */
+			ptrdiff_t old_errfunc;
+			// 延续函数环境
+			lua_KContext ctx;  /* context info. in case of yields */
+		} c;
+	} u;
+	ptrdiff_t extra;
+	short nresults;  /* expected number of results from this function */
+	// 调用状态
+	unsigned short callstatus;
 } CallInfo;
 
 
@@ -226,6 +238,7 @@ struct lua_State
 	global_State *l_G;
 
 	// call info for current function
+	// 函数的 调用信息的 链表;    重要!!!!!!!
 	CallInfo *ci;
 	const Instruction *oldpc;  /* last pc traced */
 
@@ -264,16 +277,20 @@ struct lua_State
 
 
 /*
-** Union of all collectable objects (only for conversions)
+	Union of all collectable objects (only for conversions)
+	所有 可回收对象 的结构用下面联合表示，该联合主要用于 类型强制转换：
 */
-union GCUnion {
-  GCObject gc;  /* common header */
-  struct TString ts;
-  struct Udata u;
-  union Closure cl;
-  struct Table h;
-  struct Proto p;
-  struct lua_State th;  /* thread */
+union GCUnion 
+{
+	GCObject gc;  /* common header */
+	struct TString ts;
+	struct Udata u;
+
+	// 闭包联合，里面又分为C闭包和Lua闭包
+	union Closure cl; 
+	struct Table h;
+	struct Proto p;
+	struct lua_State th;  /* thread */
 };
 
 

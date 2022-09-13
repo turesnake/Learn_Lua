@@ -140,11 +140,12 @@ LUA_API lua_CFunction lua_atpanic (lua_State *L, lua_CFunction panicf) {
   return old;
 }
 
-
-LUA_API const lua_Number *lua_version (lua_State *L) {
-  static const lua_Number version = LUA_VERSION_NUM;
-  if (L == NULL) return &version;
-  else return G(L)->version;
+// 获得 lua 版本号
+LUA_API const lua_Number *lua_version (lua_State *L) 
+{
+    static const lua_Number version = LUA_VERSION_NUM;
+    if (L == NULL) return &version;
+    else return G(L)->version;
 }
 
 
