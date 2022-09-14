@@ -503,10 +503,10 @@ typedef struct UpVal UpVal;
 
 
 /*
-** Closures
+** ======================= Closures =============================
 */
 
-// gclist为灰对象列表，最后由g->gray串连起来
+// gclist为灰对象列表，最后由 g->gray 串连起来
 #define ClosureHeader \
 	CommonHeader; lu_byte nupvalues; GCObject *gclist
 
@@ -514,7 +514,7 @@ typedef struct UpVal UpVal;
 typedef struct CClosure 
 {
     ClosureHeader;
-    lua_CFunction f;
+    lua_CFunction f;   // C函数指针
     TValue upvalue[1];  /* list of upvalues */
 } CClosure;
 
